@@ -1,11 +1,10 @@
 {
-  "name": "leaflet.timeline",
-  "version": "1.4.2",
-  "description": "Show GeoJSON objects on a timeline",
+  "name": "leaflet.timespan",
+  "version": "0.1.0",
+  "description": "Show GeoJSON objects during a time span",
   "scripts": {
     "prebuild": "rm -rf dist",
     "build": "tsc && webpack",
-    "postbuild": "cp dist/leaflet.timeline.js docs/examples/leaflet.timeline.js",
     "test": "jest",
     "prepublishOnly": "npm run build"
   },
@@ -13,21 +12,22 @@
   "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/skeate/Leaflet.timeline.git"
+    "url": "https://github.com/nukaboy/Leaflet.timespan.git"
   },
   "keywords": [
     "leaflet",
+    "timespan",
     "timeline",
     "playback",
     "time",
     "animate"
   ],
-  "author": "Jonathan Skeate",
+  "author": "Niklas Kelm",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/skeate/Leaflet.timeline/issues"
+    "url": "https://github.com/nukaboy/Leaflet.timespan/issues"
   },
-  "homepage": "https://github.com/skeate/Leaflet.timeline",
+  "homepage": "https://github.com/nukaboy/Leaflet.timespan",
   "devDependencies": {
     "@types/jest": "^25.1.4",
     "@types/leaflet": "^1.5.11",

@@ -2,7 +2,7 @@ module.exports = {
   mode: 'production',
   entry: './src/index.ts',
   output: {
-    filename: 'leaflet.timeline.js',
+    filename: 'leaflet.timespan.js',
   },
   module: {
     rules: [
