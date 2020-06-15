@@ -51,7 +51,9 @@
     "leaflet": "^1.2.0"
   },
   "dependencies": {
-    "diesal": "^1.0.2"
+    "@types/nouislider": "^9.0.7",
+    "diesal": "^1.0.2",
+    "nouislider": "^14.5.0"
   },
   "jest": {
     "preset": "ts-jest",

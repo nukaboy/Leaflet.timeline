@@ -1,5 +1,7 @@
+import S = require("nouislider")
 /** @ignore */
 import L = require("leaflet");
+
 
 interface TimelineSliderControlOptions extends L.ControlOptions {
   /**
@@ -79,13 +81,14 @@ type TSC = L.TimelineSliderControl;
 
 declare module "leaflet" {
   export class TimelineSliderControl extends L.Control {
-    container?: HTMLElement;
+    container: HTMLElement;
     options: Required<TimelineSliderControlOptions>;
     timelines: L.Timeline[];
     start: number;
     end: number;
     map: L.Map;
-    time: number;
+    timeStart: number;
+    timeEnd: number;
     syncedControl: TSC[];
 
     /** @ignore */
@@ -97,7 +100,7 @@ declare module "leaflet" {
     /** @ignore */
     _stepSize: number;
     /** @ignore */
-    _timeSlider: HTMLInputElement;
+    _timeSlider: S.noUiSlider;
     /** @ignore */
     _playing: boolean;
     /** @ignore */
@@ -136,7 +139,7 @@ declare module "leaflet" {
     /** @ignore */
     _sliderChanged(
       this: TSC,
-      e: { type: string; target: { value: string } }
+      e: { type: string; target: { valueMin: number, valueMax: number } }
     ): void;
     /** @ignore */
     _disableMapDragging(this: TSC): void;
@@ -152,7 +155,7 @@ declare module "leaflet" {
     prev(this: TSC): void;
     next(this: TSC): void;
     toggle(this: TSC): void;
-    setTime(this: TSC, time: number): void;
+    setTime(this: TSC, timeStart: number, timeEnd: number): void;
     addTimelines(this: TSC, ...timelines: L.Timeline[]): void;
     removeTimelines(this: TSC, ...timelines: L.Timeline[]): void;
     syncControl(this: TSC, controlToSync: TSC): void;
@@ -232,12 +235,22 @@ L.TimelineSliderControl = L.Control.extend({
     });
     if (!manualStart) {
       this.start = min;
-      this._timeSlider.min = (min === Infinity ? 0 : min).toString();
-      this._timeSlider.value = this._timeSlider.min;
+      this._timeSlider.updateOptions({
+        range: {
+          'min': (min === Infinity ? 0 : min),
+          'max': this._timeSlider.options.range['max']
+        }
+      });
+      this._timeSlider.set([min, null]);
     }
     if (!manualEnd) {
       this.end = max;
-      this._timeSlider.max = (max === -Infinity ? 0 : max).toString();
+      this._timeSlider.updateOptions({
+        range: {
+          'min': this._timeSlider.options.range['min'],
+          'max': (max === -Infinity ? 0 : max)
+        }
+      });
     }
     this._stepSize = Math.max(1, (this.end - this.start) / this.options.steps);
     this._stepDuration = Math.max(1, duration / this.options.steps);
@@ -342,14 +355,6 @@ L.TimelineSliderControl = L.Control.extend({
    * @param container The container to which to add the datalist
    */
   _buildDataList(container): void {
-    this._datalist = L.DomUtil.create(
-      "datalist",
-      "",
-      container
-    ) as HTMLDataListElement;
-    const idNum = Math.floor(Math.random() * 1000000);
-    this._datalist.id = `timeline-datalist-${idNum}`;
-    this._timeSlider.setAttribute("list", this._datalist.id);
     this._rebuildDataList();
   },
 
@@ -357,19 +362,12 @@ L.TimelineSliderControl = L.Control.extend({
    * Reconstructs the <datalist>. Should be called when new data comes in.
    */
   _rebuildDataList(): void {
-    const datalist = this._datalist;
-    if (!datalist) return;
-    while (datalist.firstChild) {
-      datalist.removeChild(datalist.firstChild);
-    }
-    const datalistSelect = L.DomUtil.create("select", "", this._datalist);
-    datalistSelect.setAttribute("aria-label", "List of times");
-    this._getTimes().forEach((time) => {
-      (L.DomUtil.create(
-        "option",
-        "",
-        datalistSelect
-      ) as HTMLOptionElement).value = time.toString();
+    this._timeSlider.updateOptions({
+      pips: {
+        mode: 'values',
+        values: this._getTimes(),
+        density: 4
+      }
     });
   },
 
@@ -426,40 +424,28 @@ L.TimelineSliderControl = L.Control.extend({
    * @param container The container to which to add the input
    */
   _makeSlider(container) {
-    const slider = L.DomUtil.create(
-      "input",
-      "time-slider",
-      container
-    ) as HTMLInputElement;
-    slider.setAttribute("aria-label", "Slider");
-    slider.type = "range";
-    slider.min = (this.start || 0).toString();
-    slider.max = (this.end || 0).toString();
-    slider.value = (this.start || 0).toString();
+    const slider = S.create(container, {
+      start: [this.start || 0, this.end || 0],
+      range: {
+        'min': [this.start || 0],
+        'max': [this.end || 0]
+      }
+    });
     this._timeSlider = slider;
     // register events using leaflet for easy removal
-    L.DomEvent.on(
-      this._timeSlider,
-      "mousedown mouseup click touchstart",
-      L.DomEvent.stopPropagation
+
+
+    this._timeSlider.on('update',
+      () => this._sliderChanged({
+        type: "change",
+        target: { valueMin: Number(this._timeSlider.get()[0]), valueMax: Number(this._timeSlider.get()[1]) },
+      })
     );
-    L.DomEvent.on(
-      this._timeSlider,
-      "change input",
-      this._sliderChanged as any,
-      this
+    this._timeSlider.on('start',
+      () => this._disableMapDragging
     );
-    L.DomEvent.on(
-      this._timeSlider,
-      "mouseenter",
-      this._disableMapDragging,
-      this
-    );
-    L.DomEvent.on(
-      this._timeSlider,
-      "mouseleave",
-      this._enableMapDragging,
-      this
+    this._timeSlider.on('end',
+      () => this._enableMapDragging
     );
   },
 
@@ -493,13 +479,15 @@ L.TimelineSliderControl = L.Control.extend({
   },
 
   _sliderChanged(e) {
-    const time = parseFloat(e.target.value);
-    this.time = time;
+    const time = e.target;
+    this.timeStart = time.valueMin;
+    this.timeEnd = time.valueMax;
     if (!this.options.waitToUpdateMap || e.type === "change") {
-      this.timelines.forEach((timeline) => timeline.setTime(time));
+      this.timelines.forEach((timeline) => timeline.setStartTime(time.valueMin));
+      this.timelines.forEach((timeline) => timeline.setEndTime(time.valueMax));
     }
     if (this._output) {
-      this._output.innerHTML = this.options.formatOutput(time);
+      this._output.innerHTML = this.options.formatOutput(time.valueMin).concat(" - ").concat(this.options.formatOutput(time.valueMax));
     }
   },
 
@@ -509,7 +497,7 @@ L.TimelineSliderControl = L.Control.extend({
       if (this.options.showTicks) {
         this._rebuildDataList();
       }
-      this.setTime(this.start);
+      this.setTime(this.start, this.end);
     }
   },
 
@@ -576,9 +564,9 @@ L.TimelineSliderControl = L.Control.extend({
    */
   prev() {
     this.pause();
-    const prevTime = this._nearestEventTime(this.time, -1);
-    this._timeSlider.value = prevTime.toString();
-    this.setTime(prevTime);
+    const prevTime = this._nearestEventTime(this.timeStart, -1);
+    this._timeSlider.set([prevTime, prevTime]);
+    this.setTime(prevTime, prevTime);
   },
 
   /**
@@ -601,14 +589,12 @@ L.TimelineSliderControl = L.Control.extend({
    */
   play(fromSynced) {
     window.clearTimeout(this._timer);
-    if (parseFloat(this._timeSlider.value) === this.end) {
-      this._timeSlider.value = this.start.toString();
+    if (parseFloat(this._timeSlider.get()[1]) === this.end) {
+      this._timeSlider.set([this.start, this.start]);
     }
-    this._timeSlider.value = (
-      parseFloat(this._timeSlider.value) + this._stepSize
-    ).toString();
-    this.setTime(+this._timeSlider.value);
-    if (parseFloat(this._timeSlider.value) === this.end) {
+    this._timeSlider.set([Number(this._timeSlider.get()[0]) + this._stepSize, Number(this._timeSlider.get()[1]) + this._stepSize]);
+    this.setTime(+Number(this._timeSlider.get()[0]), +Number(this._timeSlider.get()[1]));
+    if (Number(this._timeSlider.get()[1]) === this.end) {
       this._playing = false;
       this.container?.classList.remove("playing");
     } else {
@@ -632,9 +618,9 @@ L.TimelineSliderControl = L.Control.extend({
    */
   next() {
     this.pause();
-    const nextTime = this._nearestEventTime(this.time, 1);
-    this._timeSlider.value = nextTime.toString();
-    this.setTime(nextTime);
+    const nextTime = this._nearestEventTime(this.timeEnd, 1);
+    this._timeSlider.set([nextTime, nextTime]);
+    this.setTime(nextTime, nextTime);
   },
 
   /**
@@ -642,18 +628,18 @@ L.TimelineSliderControl = L.Control.extend({
    *
    * @param time The time to set
    */
-  setTime(time: number) {
-    if (this._timeSlider) this._timeSlider.value = time.toString();
+  setTime(timeStart: number, timeEnd: number) {
+    if (this._timeSlider) this._timeSlider.set([timeStart, timeEnd]);
     this._sliderChanged({
       type: "change",
-      target: { value: time.toString() },
+      target: { valueMin: timeStart, valueMax: timeEnd },
     });
   },
 
   onAdd(map: L.Map): HTMLElement {
     this.map = map;
     this._createDOM();
-    this.setTime(this.start);
+    this.setTime(this.start, this.end);
     return this.container;
   },
 
@@ -663,12 +649,11 @@ L.TimelineSliderControl = L.Control.extend({
       this._removeKeyListeners();
     }
     // cleanup events registered in _makeSlider
-    L.DomEvent.off(this._timeSlider, "change input", this._sliderChanged, this);
-    L.DomEvent.off(
-      this._timeSlider,
-      "pointerdown mousedown touchstart",
-      this._disableMapDragging,
-      this
+    this._timeSlider.off('change'
+    );
+    this._timeSlider.off('start'
+    );
+    this._timeSlider.off('end'
     );
     L.DomEvent.off(
       document.body,

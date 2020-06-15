@@ -43,7 +43,8 @@ declare module "leaflet" {
   export class Timeline extends L.GeoJSON {
     start: number;
     end: number;
-    time: number;
+    timeStart: number;
+    timeEnd: number;
     times: number[];
     ranges: IntervalTree<GeoJSON.Feature>;
     options: Required<TimelineOptions>;
@@ -59,7 +60,8 @@ declare module "leaflet" {
     _process(geojson: TimedGeoJSON | GeoJSON.FeatureCollection): void;
     updateDisplayedLayers(): void;
     getLayers(): L.GeoJSON[];
-    setTime(time: number | string): void;
+    setStartTime(time: number | string): void;
+    setEndTime(time: number | string): void;
   }
 
   let timeline: (
@@ -138,7 +140,8 @@ L.Timeline = L.GeoJSON.extend({
     });
     this.start = this.options.start || start;
     this.end = this.options.end || end;
-    this.time = this.start;
+    this.timeStart = this.start;
+    this.timeEnd = this.end;
     if (this.times.length === 0) {
       return;
     }
@@ -168,14 +171,22 @@ L.Timeline = L.GeoJSON.extend({
    * data is really time-based then you can pass a string (e.g. '2015-01-01')
    * and it will be processed into a number automatically.
    */
-  setTime(this: L.Timeline, time: number | string): void {
-    this.time = typeof time === "number" ? time : new Date(time).getTime();
+  setStartTime(this: L.Timeline, time: number | string): void {
+    this.timeStart = typeof time === "number" ? time : new Date(time).getTime();
     if (this.options.drawOnSetTime) {
       this.updateDisplayedLayers();
     }
     this.fire("change");
   },
 
+
+  setEndTime(this: L.Timeline, time: number | string): void {
+    this.timeEnd = typeof time === "number" ? time : new Date(time).getTime();
+    if (this.options.drawOnSetTime) {
+      this.updateDisplayedLayers();
+    }
+    this.fire("change");
+  },
   /**
    * Update the layer to show only the features that are relevant at the current
    * time. Usually shouldn't need to be called manually, unless you set
@@ -184,7 +195,7 @@ L.Timeline = L.GeoJSON.extend({
   updateDisplayedLayers(this: L.Timeline): void {
     // This loop is intended to help optimize things a bit. First, we find all
     // the features that should be displayed at the current time.
-    const features = this.ranges.lookup(this.time);
+    const features = this.ranges.overlap(this.timeStart, this.timeEnd)
     const layers = this.getLayers() as L.GeoJSON[];
     const layersToRemove: L.Layer[] = [];
     // Then we try to match each currently displayed layer up to a feature. If
