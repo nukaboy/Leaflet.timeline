@@ -5,34 +5,19 @@ import L = require("leaflet");
 
 interface TimelineSliderControlOptions extends L.ControlOptions {
   /**
-   * Minimum time, in ms, for the playback to take. Will almost certainly
-   * actually take at least a bit longer; after each frame, the next one
-   * displays in `duration/steps` ms, so each frame really takes frame
-   * processing time PLUS step time.
-   *
-   * Default: 10000
+   * @deprecated
    */
   duration?: number;
   /**
-   * Allow playback to be controlled using the spacebar (play/pause) and
-   * right/left arrow keys (next/previous).
-   *
-   * Default: false
+   * @deprecated
    */
   enableKeyboardControls?: boolean;
   /**
-   * Show playback controls (i.e.  prev/play/pause/next).
-   *
-   * Default: true
+   * @deprecated
    */
   enablePlayback?: boolean;
   /**
-   * Show ticks on the timeline (if the browser supports it)
-   *
-   * See here for support:
-   * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/range#Browser_compatibility
-   *
-   * Default: true
+   * @deprecated
    */
   showTicks?: boolean;
   /**
@@ -53,16 +38,11 @@ interface TimelineSliderControlOptions extends L.ControlOptions {
    */
   end?: number;
   /**
-   * How many steps to break the timeline into. Each step will then be
-   * `(end-start) / steps`. Only affects playback.
-   *
-   * Default: 1000
+   * @deprecated
    */
   steps?: number;
   /**
-   * Start playback of the timeline as soon as the page is loaded.
-   *
-   * Default: false
+   * @deprecated
    */
   autoPlay?: boolean;
 

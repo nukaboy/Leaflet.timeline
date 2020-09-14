@@ -5,6 +5,7 @@
   "scripts": {
     "prebuild": "rm -rf dist",
     "build": "tsc && webpack",
+    "postbuild": "cp dist/leaflet.timespan.js docs/examples/leaflet.timespan.js",
     "test": "jest",
     "prepublishOnly": "npm run build"
   },
