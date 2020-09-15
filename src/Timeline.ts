@@ -165,7 +165,7 @@ L.Timeline = L.GeoJSON.extend({
   },
 
   /**
-   * Sets the time for this layer.
+   * Sets the start time for this layer.
    *
    * @param time The time to set. Usually a number, but if your
    * data is really time-based then you can pass a string (e.g. '2015-01-01')
@@ -179,7 +179,13 @@ L.Timeline = L.GeoJSON.extend({
     this.fire("change");
   },
 
-
+  /**
+   * Sets the end time for this layer.
+   *
+   * @param time The time to set. Usually a number, but if your
+   * data is really time-based then you can pass a string (e.g. '2015-01-01')
+   * and it will be processed into a number automatically.
+   */
   setEndTime(this: L.Timeline, time: number | string): void {
     this.timeEnd = typeof time === "number" ? time : new Date(time).getTime();
     if (this.options.drawOnSetTime) {
@@ -187,6 +193,7 @@ L.Timeline = L.GeoJSON.extend({
     }
     this.fire("change");
   },
+
   /**
    * Update the layer to show only the features that are relevant at the current
    * time. Usually shouldn't need to be called manually, unless you set

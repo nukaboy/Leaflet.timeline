@@ -4,20 +4,9 @@ import L = require("leaflet");
 
 
 interface TimelineSliderControlOptions extends L.ControlOptions {
+
   /**
-   * @deprecated
-   */
-  duration?: number;
-  /**
-   * @deprecated
-   */
-  enableKeyboardControls?: boolean;
-  /**
-   * @deprecated
-   */
-  enablePlayback?: boolean;
-  /**
-   * @deprecated
+   * Show ticks on the timeline
    */
   showTicks?: boolean;
   /**
@@ -37,14 +26,7 @@ interface TimelineSliderControlOptions extends L.ControlOptions {
    * automatically based on the timelines registered to this control.
    */
   end?: number;
-  /**
-   * @deprecated
-   */
-  steps?: number;
-  /**
-   * @deprecated
-   */
-  autoPlay?: boolean;
+
 
   /**
    * A function which takes the current time value (a Unix timestamp) and
@@ -53,8 +35,6 @@ interface TimelineSliderControlOptions extends L.ControlOptions {
   formatOutput?(time: number): string;
 }
 
-/** @ignore */
-type PlaybackControl = "play" | "pause" | "prev" | "next";
 
 /** @ignore */
 type TSC = L.TimelineSliderControl;
@@ -76,13 +56,8 @@ declare module "leaflet" {
     /** @ignore */
     _output?: HTMLOutputElement;
     /** @ignore */
-    _stepDuration: number;
-    /** @ignore */
-    _stepSize: number;
-    /** @ignore */
     _timeSlider: S.noUiSlider;
-    /** @ignore */
-    _playing: boolean;
+
     /** @ignore */
     _timer: number;
     /** @ignore */
@@ -107,10 +82,6 @@ declare module "leaflet" {
     /** @ignore */
     _rebuildDataList(this: TSC): void;
     /** @ignore */
-    _makeButton(this: TSC, container: HTMLElement, name: PlaybackControl): void;
-    /** @ignore */
-    _makeButtons(this: TSC, container: HTMLElement): void;
-    /** @ignore */
     _makeOutput(this: TSC, container: HTMLElement): void;
     /** @ignore */
     _makeSlider(this: TSC, container: HTMLElement): void;
@@ -127,14 +98,7 @@ declare module "leaflet" {
     _enableMapDragging(this: TSC): void;
     /** @ignore */
     _resetIfTimelinesChanged(this: TSC, oldTimelineCount: number): void;
-    /** @ignore */
-    _autoPlay(this: TSC): void;
 
-    play(this: TSC, fromSynced?: boolean): void;
-    pause(this: TSC, fromSynced?: boolean): void;
-    prev(this: TSC): void;
-    next(this: TSC): void;
-    toggle(this: TSC): void;
     setTime(this: TSC, timeStart: number, timeEnd: number): void;
     addTimelines(this: TSC, ...timelines: L.Timeline[]): void;
     removeTimelines(this: TSC, ...timelines: L.Timeline[]): void;
@@ -148,15 +112,10 @@ declare module "leaflet" {
 L.TimelineSliderControl = L.Control.extend({
   initialize(options = {}) {
     const defaultOptions: TimelineSliderControlOptions = {
-      duration: 10000,
-      enableKeyboardControls: false,
-      enablePlayback: true,
       formatOutput: (output) => `${output || ""}`,
       showTicks: true,
       waitToUpdateMap: false,
       position: "bottomleft",
-      steps: 1000,
-      autoPlay: false,
     };
     this.timelines = [];
     L.Util.setOptions(this, defaultOptions);
@@ -202,7 +161,6 @@ L.TimelineSliderControl = L.Control.extend({
   _recalculate() {
     const manualStart = typeof this.options.start !== "undefined";
     const manualEnd = typeof this.options.end !== "undefined";
-    const duration = this.options.duration;
     let min = Infinity;
     let max = -Infinity;
     this.timelines.forEach((timeline) => {
@@ -232,8 +190,6 @@ L.TimelineSliderControl = L.Control.extend({
         }
       });
     }
-    this._stepSize = Math.max(1, (this.end - this.start) / this.options.steps);
-    this._stepDuration = Math.max(1, duration / this.options.steps);
   },
 
   /**
@@ -283,29 +239,10 @@ L.TimelineSliderControl = L.Control.extend({
     ];
     const container = L.DomUtil.create("div", classes.join(" "));
     this.container = container;
-    if (this.options.enablePlayback) {
-      const sliderCtrlC = L.DomUtil.create(
-        "div",
-        "sldr-ctrl-container",
-        container
-      );
-      const buttonContainer = L.DomUtil.create(
-        "div",
-        "button-container",
-        sliderCtrlC
-      );
-      this._makeButtons(buttonContainer);
-      if (this.options.enableKeyboardControls) {
-        this._addKeyListeners();
-      }
-      this._makeOutput(sliderCtrlC);
-    }
+
     this._makeSlider(container);
     if (this.options.showTicks) {
       this._buildDataList(container);
-    }
-    if (this.options.autoPlay) {
-      this._autoPlay();
     }
   },
 
@@ -349,34 +286,6 @@ L.TimelineSliderControl = L.Control.extend({
         density: 4
       }
     });
-  },
-
-  /**
-   * Makes a button with the passed name as a class, which calls the
-   * corresponding function when clicked. Attaches the button to container.
-   *
-   * @private
-   * @param container The container to which to add the button
-   * @param name The class to give the button and the function to call
-   */
-  _makeButton(container, name) {
-    const button = L.DomUtil.create("button", name, container);
-    button.setAttribute("aria-label", name);
-    button.addEventListener("click", () => this[name]());
-    L.DomEvent.disableClickPropagation(button);
-  },
-
-  /**
-   * Makes the prev, play, pause, and next buttons
-   *
-   * @private
-   * @param container The container to which to add the buttons
-   */
-  _makeButtons(container) {
-    this._makeButton(container, "prev");
-    this._makeButton(container, "play");
-    this._makeButton(container, "pause");
-    this._makeButton(container, "next");
   },
 
   /**
@@ -438,26 +347,6 @@ L.TimelineSliderControl = L.Control.extend({
     this._output.innerHTML = this.options.formatOutput(this.start);
   },
 
-  _onKeydown(e) {
-    let target = (e.target || e.srcElement) as HTMLElement;
-    if (!/INPUT|TEXTAREA/.test(target.tagName)) {
-      switch (e.keyCode || e.which) {
-        case 37:
-          this.prev();
-          break;
-        case 39:
-          this.next();
-          break;
-        case 32:
-          this.toggle();
-          break;
-        default:
-          return;
-      }
-      e.preventDefault();
-    }
-  },
-
   _sliderChanged(e) {
     const time = e.target;
     this.timeStart = time.valueMin;
@@ -481,25 +370,15 @@ L.TimelineSliderControl = L.Control.extend({
     }
   },
 
-  _autoPlay() {
-    if (document.readyState === "loading") {
-      window.addEventListener("load", () => this._autoPlay());
-    } else {
-      this.play();
-    }
-  },
-
   /* EXTERNAL API *************************************************************/
 
   /**
    * Register timeline layers with this control. This could change the start and
-   * end points of the timeline (unless manually set). It will also reset the
-   * playback.
+   * end points of the timeline (unless manually set).
    *
    * @param timelines The `L.Timeline`s to register
    */
   addTimelines(...timelines) {
-    this.pause();
     const timelineCount = this.timelines.length;
     timelines.forEach((timeline) => {
       if (this.timelines.indexOf(timeline) === -1) {
@@ -511,13 +390,11 @@ L.TimelineSliderControl = L.Control.extend({
 
   /**
    * Unregister timeline layers with this control. This could change the start
-   * and end points of the timeline unless manually set. It will also reset the
-   * playback.
+   * and end points of the timeline unless manually set..
    *
    * @param timelines The `L.Timeline`s to unregister
    */
   removeTimelines(...timelines) {
-    this.pause();
     const timelineCount = this.timelines.length;
     timelines.forEach((timeline) => {
       const index = this.timelines.indexOf(timeline);
@@ -528,80 +405,6 @@ L.TimelineSliderControl = L.Control.extend({
     this._resetIfTimelinesChanged(timelineCount);
   },
 
-  /**
-   * Toggles play/pause state.
-   */
-  toggle() {
-    if (this._playing) {
-      this.pause();
-    } else {
-      this.play();
-    }
-  },
-
-  /**
-   * Pauses playback and goes to the previous event.
-   */
-  prev() {
-    this.pause();
-    const prevTime = this._nearestEventTime(this.timeStart, -1);
-    this._timeSlider.set([prevTime, prevTime]);
-    this.setTime(prevTime, prevTime);
-  },
-
-  /**
-   * Pauses playback.
-   */
-  pause(fromSynced) {
-    window.clearTimeout(this._timer);
-    this._playing = false;
-    this.container?.classList.remove("playing");
-
-    if (this.syncedControl && !fromSynced) {
-      this.syncedControl.map(function (control) {
-        control.pause(true);
-      });
-    }
-  },
-
-  /**
-   * Starts playback.
-   */
-  play(fromSynced) {
-    window.clearTimeout(this._timer);
-    if (parseFloat(this._timeSlider.get()[1]) === this.end) {
-      this._timeSlider.set([this.start, this.start]);
-    }
-    this._timeSlider.set([Number(this._timeSlider.get()[0]) + this._stepSize, Number(this._timeSlider.get()[1]) + this._stepSize]);
-    this.setTime(+Number(this._timeSlider.get()[0]), +Number(this._timeSlider.get()[1]));
-    if (Number(this._timeSlider.get()[1]) === this.end) {
-      this._playing = false;
-      this.container?.classList.remove("playing");
-    } else {
-      this._playing = true;
-      this.container?.classList.add("playing");
-      this._timer = window.setTimeout(
-        () => this.play(true),
-        this._stepDuration
-      );
-    }
-
-    if (this.syncedControl && !fromSynced) {
-      this.syncedControl.map(function (control) {
-        control.play(true);
-      });
-    }
-  },
-
-  /**
-   * Pauses playback and goes to the next event.
-   */
-  next() {
-    this.pause();
-    const nextTime = this._nearestEventTime(this.timeEnd, 1);
-    this._timeSlider.set([nextTime, nextTime]);
-    this.setTime(nextTime, nextTime);
-  },
 
   /**
    * Set the time displayed.
@@ -624,10 +427,6 @@ L.TimelineSliderControl = L.Control.extend({
   },
 
   onRemove() {
-    /* istanbul ignore else */
-    if (this.options.enableKeyboardControls) {
-      this._removeKeyListeners();
-    }
     // cleanup events registered in _makeSlider
     this._timeSlider.off('change'
     );
