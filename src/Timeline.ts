@@ -48,6 +48,7 @@ declare module "leaflet" {
     times: number[];
     ranges: IntervalTree<GeoJSON.Feature>;
     options: Required<TimelineOptions>;
+    slider: noUiSlider.Options;
 
     /** @ignore */
     initialize(
@@ -230,5 +231,5 @@ L.Timeline = L.GeoJSON.extend({
 
 L.timeline = (
   geojson?: TimedGeoJSON | GeoJSON.FeatureCollection,
-  options?: TimelineOptions
+  options?: TimelineOptions,
 ) => new L.Timeline(geojson, options);
