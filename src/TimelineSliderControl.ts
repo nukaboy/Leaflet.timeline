@@ -26,7 +26,11 @@ interface TimelineSliderControlOptions extends L.ControlOptions {
    * automatically based on the timelines registered to this control.
    */
   end?: number;
-
+  /**
+   * Options for the noUI-Slider
+   * Note that only one or two handles are supported
+   */
+  sliderOptions?: noUiSlider.Options;
 
   /**
    * A function which takes the current time value (a Unix timestamp) and
@@ -57,7 +61,10 @@ declare module "leaflet" {
     _output?: HTMLOutputElement;
     /** @ignore */
     _timeSlider: S.noUiSlider;
-
+    /** @ignore */
+    _endHandleIndex: number;
+    /** @ignore */
+    _handles: number;
     /** @ignore */
     _timer: number;
     /** @ignore */
@@ -115,7 +122,7 @@ L.TimelineSliderControl = L.Control.extend({
       formatOutput: (output) => `${output || ""}`,
       showTicks: true,
       waitToUpdateMap: false,
-      position: "bottomleft",
+      position: "bottomleft"
     };
     this.timelines = [];
     L.Util.setOptions(this, defaultOptions);
@@ -313,8 +320,20 @@ L.TimelineSliderControl = L.Control.extend({
    * @param container The container to which to add the input
    */
   _makeSlider(container) {
-    const slider = S.create(container, {
-      start: [this.start || 0, this.end || 0],
+    const slider = S.create(container, this.options.sliderOptions);
+    var startVal = this.options.sliderOptions.start;
+    if (typeof startVal === 'number') {
+      startVal = [startVal];
+    }
+    if (startVal[0] > this.end || startVal[0] < this.start) {
+      startVal[0] = this.start | 0;
+    }
+    if (startVal.length === 2 && (startVal[1] > this.end || startVal[1] < this.start)) {
+      startVal[1] = this.end | 0;
+    }
+
+    slider.updateOptions({
+      start: startVal,
       range: {
         'min': [this.start || 0],
         'max': [this.end || 0]
