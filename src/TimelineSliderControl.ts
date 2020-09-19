@@ -322,6 +322,9 @@ L.TimelineSliderControl = L.Control.extend({
   _makeSlider(container) {
     const slider = S.create(container, this.options.sliderOptions);
     var startVal = this.options.sliderOptions.start;
+    if (startVal === undefined) {
+      startVal = [-Infinity];
+    }
     if (typeof startVal === 'number') {
       startVal = [startVal];
     }
@@ -340,13 +343,11 @@ L.TimelineSliderControl = L.Control.extend({
       }
     });
     this._timeSlider = slider;
-    // register events using leaflet for easy removal
-
 
     this._timeSlider.on('update',
       () => this._sliderChanged({
         type: "change",
-        target: { valueMin: Number(this._timeSlider.get()[0]), valueMax: Number(this._timeSlider.get()[1]) },
+        target: { valueMin: Number(this._timeSlider.get()[0]), valueMax: Number(this._timeSlider.get()[this._timeSlider.get().length - 1]) },
       })
     );
     this._timeSlider.on('start',
